@@ -1,0 +1,29 @@
+---
+title: "Predicting End of Season Batting Averages"
+author: "Diego Martinez"
+date: "10/30/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(gt)
+
+batting<-read_csv('batting.csv')
+
+
+```
+
+#Data Acquisition and Data Checking
+I began by taking an overall look at the data in the batting.csv. I first checked for any NA values in any of the columns. These could negatively affect a model, thus if there are any, I would like to know. 
+```{r fig.height= 2, fig.width=3}
+batting%>%mutate(`Any Na` = apply(batting, 1, anyNA))%>%
+  count(`Any Na`)%>%
+  gt()
+
+```
+From the looks of it, I will not have to worry about filling in any Na values and the data is complete for every player. 
