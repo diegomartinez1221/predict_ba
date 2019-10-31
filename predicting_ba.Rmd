@@ -20,10 +20,31 @@ batting<-read_csv('batting.csv')
 
 #Data Acquisition and Data Checking
 I began by taking an overall look at the data in the batting.csv. I first checked for any NA values in any of the columns. These could negatively affect a model, thus if there are any, I would like to know. 
-```{r fig.height= 2, fig.width=3}
+```{r fig.height= 2, fig.width=3, fig.align='center'}
 batting%>%mutate(`Any Na` = apply(batting, 1, anyNA))%>%
   count(`Any Na`)%>%
   gt()
 
 ```
 From the looks of it, I will not have to worry about filling in any Na values and the data is complete for every player. 
+
+Now, I would like to take a look at the distribution of a few columns I believe will be important for the analysis. The March and April batting averages. I also take a look at the components of Batting Average, Hits and At Bats, to provide more context to the Batting Averages. For example hitting 0.400 is amazing, but if the sample size is 2 hits in 5 at bats, the Batting Average looks less appealing.  
+
+```{r, out.width='.49\\linewidth', fig.width=3, fig.height=3,fig.show='hold',fig.align='center'}
+hist(batting$MarApr_AB, xlab = "March and April At Bats", main = "At Bats")
+hist(batting$MarApr_H, xlab = "March and April Hits", main = "Hits")
+
+hist(batting$MarApr_AVG, xlab = "Batting Average", main = "March and April Average" )
+hist(batting$FullSeason_AVG, xlab = "Batting Average", main = "Full Season Average")
+
+batting%>%
+  ggplot(aes(x = MarApr_AVG, y = FullSeason_AVG)) + geom_point() + ylim(0, 0.5) + xlim(0,0.5)+ geom_hline(yintercept=0.25)+
+  geom_vline(xintercept = 0.25)
+```
+
+Even though everyone's data is only from the months of March and April, not everyone can be viewed as equal given the wide range of opportunities/At Bats as well as discrepancy in the number of hits in March and April. Furthermore, it is important to note Full Season Batting Averages, which will be our response variable, is approximately normally distributed given the bell shaped curve. Also, the range of Batting Averages is much wider for the first month of the season then Full Season Averages, suggesting regression to the mean. I will discuss this more in depth later. 
+
+
+
+
+
