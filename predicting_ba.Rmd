@@ -3,22 +3,24 @@ title: "Predicting End of Season Batting Averages"
 author: "Diego Martinez"
 date: "10/30/2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(dplyr)
 library(gt)
+library(tinytex)
+
 
 batting<-read_csv('batting.csv')
 
 
 ```
 
-#Data Acquisition and Data Checking
+#Data Checking
 I began by taking an overall look at the data in the batting.csv. I first checked for any NA values in any of the columns. These could negatively affect a model, thus if there are any, I would like to know. 
 ```{r fig.height= 2, fig.width=3, fig.align='center'}
 batting%>%mutate(`Any Na` = apply(batting, 1, anyNA))%>%
@@ -28,21 +30,32 @@ batting%>%mutate(`Any Na` = apply(batting, 1, anyNA))%>%
 ```
 From the looks of it, I will not have to worry about filling in any Na values and the data is complete for every player. 
 
-Now, I would like to take a look at the distribution of a few columns I believe will be important for the analysis. The March and April batting averages. I also take a look at the components of Batting Average, Hits and At Bats, to provide more context to the Batting Averages. For example hitting 0.400 is amazing, but if the sample size is 2 hits in 5 at bats, the Batting Average looks less appealing.  
+Now, I would like to take a look at the distribution of a few columns I believe will be important for the analysis such as the March and April batting averages. I also take a look at the components of Batting Average, Hits and At Bats, to provide more context to the Batting Averages. For example hitting 0.400 is amazing, but if the sample size is 2 hits in 5 at bats, the Batting Average looks less appealing.  
 
-```{r, out.width='.49\\linewidth', fig.width=3, fig.height=3,fig.show='hold',fig.align='center'}
+```{r,echo=FALSE, out.width = "50%", fig.align = "default", fig.width=2.5, fig.height=2.5,fig.show='hold'}
 hist(batting$MarApr_AB, xlab = "March and April At Bats", main = "At Bats")
 hist(batting$MarApr_H, xlab = "March and April Hits", main = "Hits")
 
-hist(batting$MarApr_AVG, xlab = "Batting Average", main = "March and April Average" )
-hist(batting$FullSeason_AVG, xlab = "Batting Average", main = "Full Season Average")
+hist(batting$MarApr_AVG, xlab = "Batting Average", main = "March and April Avg." )
+hist(batting$FullSeason_AVG, xlab = "Batting Average", main = "Full Season Avg." )
 
-batting%>%
-  ggplot(aes(x = MarApr_AVG, y = FullSeason_AVG)) + geom_point() + ylim(0, 0.5) + xlim(0,0.5)+ geom_hline(yintercept=0.25)+
-  geom_vline(xintercept = 0.25)
+
 ```
 
-Even though everyone's data is only from the months of March and April, not everyone can be viewed as equal given the wide range of opportunities/At Bats as well as discrepancy in the number of hits in March and April. Furthermore, it is important to note Full Season Batting Averages, which will be our response variable, is approximately normally distributed given the bell shaped curve. Also, the range of Batting Averages is much wider for the first month of the season then Full Season Averages, suggesting regression to the mean. I will discuss this more in depth later. 
+Referencing the plots above, Even though everyone's data is only from the months of March and April, not everyone can be viewed as equal given the wide range of opportunities/At Bats as well as discrepancy in the number of hits in March and April. Furthermore, it is important to note Full Season Batting Averages, which will be our response variable, is approximately normally distributed given the bell shaped curve. Also, the range of Batting Averages is much wider for the first month of the season then Full Season Averages, suggesting regression to the mean which can be seen in this next plot: 
+
+
+
+```{r fig.align='center'}
+batting%>%
+  ggplot(aes(x = MarApr_AVG, y = FullSeason_AVG)) + geom_point() + ylim(0, 0.5) + xlim(0,0.5)+ geom_abline(intercept = 0, slope = 1) + geom_hline(yintercept = mean(batting$FullSeason_AVG)) + labs(title = "Full Season Averages vs. March and April Averages", subtitle =  "Full Season Average's Mean, ≈ 0.251, Depicted by Horizontal Line", x = "March and April Average", y = "Full Season Average")
+```
+
+The Full Season Averages vs. March and April Averages plot tells us a lot about the relationship between the two averages and the types of predictions that need to be made. The vertical line depicts a one to one relationship meaning being on the line or close to the line suggests your average after the first months of the season resemble your average at the end of the season, while being above the lines means the players average improved and below meaning the players average decreased. Again the data suggests regression to the mean, evident by the majority of the data being congregated around the mean of ≈ 0.251, which is depicted in the graph by the horizontal line. In a 1977 article by Bradley Efron and Carl Morris, the two men use James-Stein Estimators to predict end of season batting averages on a subset of players after their first 45 at bats [(found here)](https://statweb.stanford.edu/~ckirby/brad/other/Article1977.pdf). A James Stein Estimator "shrinks" the values closer to the gran average (regression to the mean). Furthermore,"the theorem on which Stein's Method is based asserts that true batting abilities are more tightly clustered than the preliminary batting averages would seem to sugges they are." This is an explanation also to why the distribution of batting averages in the first months covers a wider range than the final season averages as they converage to the mean.
+
+#Methodology
+
+For my predictions, I would like to use James Stein Estimators; however, I would not be able to follow the methods of analysis similar to Bradley Efron and Carl Morris. Carl Morris stated that "Stein’s estimator required approximate normality (satisfied by a sufficient sample size for each batter), and it was designed only to work for equal variances." Equal variance would be achieved by everyone having the same number of at bats; however, there is a wide distribution of at bats in this dataset. 
 
 
 
