@@ -12,7 +12,8 @@ knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(dplyr)
 library(gt)
-library(tinytex)
+library(caret)
+library(randomForest)
 
 
 batting<-read_csv('batting.csv')
@@ -51,15 +52,70 @@ batting%>%
   ggplot(aes(x = MarApr_AVG, y = FullSeason_AVG)) + geom_point() + ylim(0, 0.5) + xlim(0,0.5)+ geom_abline(intercept = 0, slope = 1) + geom_hline(yintercept = mean(batting$FullSeason_AVG)) + labs(title = "Full Season Averages vs. March and April Averages", subtitle =  "Full Season Average's Mean, ≈ 0.251, Depicted by Horizontal Line", x = "March and April Average", y = "Full Season Average")
 ```
 
+
+
 The Full Season Averages vs. March and April Averages plot tells us a lot about the relationship between the two averages and the types of predictions that need to be made. The vertical line depicts a one to one relationship meaning being on the line or close to the line suggests your average after the first months of the season resemble your average at the end of the season, while being above the lines means the players average improved and below meaning the players average decreased. Again the data suggests regression to the mean, evident by the majority of the data being congregated around the mean of ≈ 0.251, which is depicted in the graph by the horizontal line. In a 1977 article by Bradley Efron and Carl Morris, the two men use James-Stein Estimators to predict end of season batting averages on a subset of players after their first 45 at bats [(found here)](https://statweb.stanford.edu/~ckirby/brad/other/Article1977.pdf). A James Stein Estimator "shrinks" the values closer to the gran average (regression to the mean). Furthermore,"the theorem on which Stein's Method is based asserts that true batting abilities are more tightly clustered than the preliminary batting averages would seem to sugges they are." This is an explanation also to why the distribution of batting averages in the first months covers a wider range than the final season averages as they converage to the mean.
 
 #Methodology
 
 For my predictions, I would like to use James Stein Estimators; however, I would not be able to follow the methods of analysis similar to Bradley Efron and Carl Morris. Carl Morris stated that "Stein’s estimator required approximate normality (satisfied by a sufficient sample size for each batter), and it was designed only to work for equal variances." Equal variance would be achieved by everyone having the same number of at bats; however, there is a wide distribution of at bats in this dataset. 
 
-Thus, I decided upon using a 
+Thus, I decided upon using a Random Forest Model to make my predictions. I believe its power and flexibility to be used for both classification and regression will be benefitial to making the predictions. Furthermore, I chose the random forest model because each decision tree is built on a subset of random features. Thus, I do not need to worry about overfitting and I can include many of the March and April batting variables.
+
+I begin by building a random forest model with every predictor in the dataset. I will then check the variable importance to tune the model. 
+```{r echo=TRUE}
+set.seed(123)
+sample <- sample.int(n = nrow(batting), size = floor(.8*nrow(batting)), replace = FALSE)
+  trainer<- batting[sample, ]
+  tester<- batting[-sample, ]
+  
+  
+names(trainer) <- make.names(names(trainer))
+names(tester) <- make.names(names(tester))
+
+trainer<-trainer%>% select(- playerid, -Team)
+
+
+fit_rf<-randomForest(FullSeason_AVG~.,
+                     data=trainer[-1])
+
+varImpPlot(fit_rf, type = 2)
+
+
+```
 
 
 
+```{r}
+set.seed(123)
+sample <- sample.int(n = nrow(batting), size = floor(.8*nrow(batting)), replace = FALSE)
+  trainer<- batting[sample, ]
+  tester<- batting[-sample, ]
+  
+  
+names(trainer) <- make.names(names(trainer))
+names(tester) <- make.names(names(tester))
+
+trainer<-trainer%>% select(- playerid, -Team, -MarApr_HR, -MarApr_SB, - MarApr_HR.FB, -MarApr_R, -MarApr_RBI, -MarApr_BB.)
+
+
+fit_rf<-randomForest(FullSeason_AVG~.,
+                     data=trainer[-1])
+
+varImpPlot(fit_rf)
+
+predict_ba<- predict(fit_rf, tester)
+
+tester%>%mutate(predicted_fullseason_avg = predict(fit_rf, .))%>%
+  mutate(se = (FullSeason_AVG - predicted_fullseason_avg)^2)%>%
+  summarise(sqrt(mean(se)))
+
+```
+
+
+
+#Predictions 
+
+cor(batting)
 
 
