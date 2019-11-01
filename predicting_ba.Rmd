@@ -8,24 +8,52 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
+# libraries used during my analysis 
+
 library(tidyverse)
 library(dplyr)
+
+#installation if necessary:
+#install.packages("remotes")
+#remotes::install_github("rstudio/gt")
+
 library(gt)
+
+#install.packages("zoo")
+
+library(zoo)
+
+#install.packages("caret")
+
 library(caret)
+
+#install.packages("randomForest")
+
 library(randomForest)
 
+# reading in provided dataset
 
 batting<-read_csv('batting.csv')
+
+#additional data collected from Fangraphs
+
+cumulative_stats_2017<- read_csv('cumulative_stats_2017.csv')
+lifetime_avg<-cumulative_stats_2017 %> %mutate(Lifetime_AVG = AVG) %>% select(Name, Lifetime_AVG)
 
 
 ```
 
-#Data Checking
+
+#Data Checking and Acquisition
 I began by taking an overall look at the data in the batting.csv. I first checked for any NA values in any of the columns. These could negatively affect a model, thus if there are any, I would like to know. 
 ```{r fig.height= 2, fig.width=3, fig.align='center'}
-batting%>%mutate(`Any Na` = apply(batting, 1, anyNA))%>%
+#checking for any Na values in any of the columns of dataset
+
+batting %>%
+  mutate(`Any Na` = apply(batting, 1, anyNA)) %>%
   count(`Any Na`)%>%
+  #cretes a nicer output table 
   gt()
 
 ```
@@ -33,11 +61,16 @@ From the looks of it, I will not have to worry about filling in any Na values an
 
 Now, I would like to take a look at the distribution of a few columns I believe will be important for the analysis such as the March and April batting averages. I also take a look at the components of Batting Average, Hits and At Bats, to provide more context to the Batting Averages. For example hitting 0.400 is amazing, but if the sample size is 2 hits in 5 at bats, the Batting Average looks less appealing.  
 
-```{r,echo=FALSE, out.width = "50%", fig.align = "default", fig.width=2.5, fig.height=2.5,fig.show='hold'}
+```{r , out.width = "50%", fig.align = "default", fig.width=2.5, fig.height=2.5,fig.show='hold'}
+
+#implementing various histograms for variable distribution.
+
 hist(batting$MarApr_AB, xlab = "March and April At Bats", main = "At Bats")
+
 hist(batting$MarApr_H, xlab = "March and April Hits", main = "Hits")
 
 hist(batting$MarApr_AVG, xlab = "Batting Average", main = "March and April Avg." )
+
 hist(batting$FullSeason_AVG, xlab = "Batting Average", main = "Full Season Avg." )
 
 
@@ -49,23 +82,47 @@ Referencing the plots above, Even though everyone's data is only from the months
 
 ```{r fig.align='center'}
 batting%>%
-  ggplot(aes(x = MarApr_AVG, y = FullSeason_AVG)) + geom_point() + ylim(0, 0.5) + xlim(0,0.5)+ geom_abline(intercept = 0, slope = 1) + geom_hline(yintercept = mean(batting$FullSeason_AVG)) + labs(title = "Full Season Averages vs. March and April Averages", subtitle =  "Full Season Average's Mean, ≈ 0.251, Depicted by Horizontal Line", x = "March and April Average", y = "Full Season Average")
+  ggplot(aes(x = MarApr_AVG, y = FullSeason_AVG)) + geom_point() +
+  ylim(0, 0.5) +
+  xlim(0,0.5)+ 
+  geom_abline(intercept = 0, slope = 1) +
+  geom_hline(yintercept = mean(batting$FullSeason_AVG)) + 
+  labs(title = "Full Season Averages vs. March and April Averages", 
+       subtitle =  "Full Season Average's Mean, ≈ 0.251, Depicted by Horizontal Line",
+       x = "March and April Average",
+       y = "Full Season Average")
 ```
 
 
 
-The Full Season Averages vs. March and April Averages plot tells us a lot about the relationship between the two averages and the types of predictions that need to be made. The vertical line depicts a one to one relationship meaning being on the line or close to the line suggests your average after the first months of the season resemble your average at the end of the season, while being above the lines means the players average improved and below meaning the players average decreased. Again the data suggests regression to the mean, evident by the majority of the data being congregated around the mean of ≈ 0.251, which is depicted in the graph by the horizontal line. In a 1977 article by Bradley Efron and Carl Morris, the two men use James-Stein Estimators to predict end of season batting averages on a subset of players after their first 45 at bats [(found here)](https://statweb.stanford.edu/~ckirby/brad/other/Article1977.pdf). A James Stein Estimator "shrinks" the values closer to the gran average (regression to the mean). Furthermore,"the theorem on which Stein's Method is based asserts that true batting abilities are more tightly clustered than the preliminary batting averages would seem to sugges they are." This is an explanation also to why the distribution of batting averages in the first months covers a wider range than the final season averages as they converage to the mean.
+The Full Season Averages vs. March and April Averages plot tells us a lot about the relationship between the two averages and the types of predictions that need to be made. The vertical line depicts a one to one relationship meaning being on the line or close to the line suggests your average after the first months of the season resemble your average at the end of the season, while being above the lines means the player's average improved and below meaning the player's average decreased. Again the data suggests regression to the mean, evident by the majority of the data being congregated around the mean of ≈ 0.251, which is depicted in the graph by the horizontal line. In a 1977 article by Bradley Efron and Carl Morris, the two men used James-Stein Estimators to predict end of season batting averages on a subset of players after their first 45 at bats [(found here)](https://statweb.stanford.edu/~ckirby/brad/other/Article1977.pdf). A James Stein Estimator "shrinks" the values closer to the gran average (regression to the mean). Furthermore,"the theorem on which Stein's Method is based asserts that true batting abilities are more tightly clustered than the preliminary batting averages would seem to sugges they are." This is an explanation also to why the distribution of batting averages in the first months covers a wider range than the final season averages as they converage to the mean.
+
+Thus, to aid in my predictions, I added data on the the player's lifetime batting average upon until the beginning of the 2018 season because it is a measure of past success and can in the long run assess a players true batting ability. The data also comes from Fangraphs. It consists of every player's career numbers from 2000-2017. I had to pick this range due to players like Albert Pujols and Jose Reyes who are in the dataset that have been playing since the early 2000s. Be careful because their are some players from our original dataset who have the same name as another MLB player from this time period. I manually erased these values. 
+
+```{r}
+batting_full<-batting%>%left_join(lifetime_avg, by = "Name")%>%arrange(Name)
+
+batting<- batting_full[-c(73, 80, 171), ]
+
+batting$Lifetime_AVG<-na.aggregate(batting$Lifetime_AVG)
+```
+
+
+
 
 #Methodology
 
-For my predictions, I would like to use James Stein Estimators; however, I would not be able to follow the methods of analysis similar to Bradley Efron and Carl Morris. Carl Morris stated that "Stein’s estimator required approximate normality (satisfied by a sufficient sample size for each batter), and it was designed only to work for equal variances." Equal variance would be achieved by everyone having the same number of at bats; however, there is a wide distribution of at bats in this dataset. 
+For my predictions, I would have liked to use James Stein Estimators; however, I would not be able to follow the methods of analysis similar to Bradley Efron and Carl Morris. Carl Morris stated that "Stein’s estimator required approximate normality (satisfied by a sufficient sample size for each batter), and it was designed only to work for equal variances." Equal variance would be achieved by everyone having the same number of at bats; however, there is a wide distribution of at bats in this dataset. 
 
 Thus, I decided upon using a Random Forest Model to make my predictions. I believe its power and flexibility to be used for both classification and regression will be benefitial to making the predictions. Furthermore, I chose the random forest model because each decision tree is built on a subset of random features. Thus, I do not need to worry about overfitting and I can include many of the March and April batting variables.
 
-I begin by building a random forest model with every predictor in the dataset. I will then check the variable importance to tune the model. 
+I will break the data into two subsets (70,30) to train as well as test the model. Using the random forest model that will be bootstrapped to create a "forest" of decision tress from the training subset, I will predict final season batting averages for the testing subset. From here, I will visualize the predicted values as well as compare them to the true final season batting averages. To test the overall accurancy of the prediction, I will calculate the Root Mean Square Error, the standard deviation of residuals. This is a good metric because it will tell how concetrated the data is around the line of best fit. 
+
+Below is the code I used to impliment the random forest model:
+
 ```{r echo=TRUE}
-set.seed(123)
-sample <- sample.int(n = nrow(batting), size = floor(.8*nrow(batting)), replace = FALSE)
+set.seed(1234)
+sample <- sample.int(n = nrow(batting), size = floor(.7*nrow(batting)), replace = FALSE)
   trainer<- batting[sample, ]
   tester<- batting[-sample, ]
   
@@ -77,45 +134,78 @@ trainer<-trainer%>% select(- playerid, -Team)
 
 
 fit_rf<-randomForest(FullSeason_AVG~.,
-                     data=trainer[-1])
+                     data=trainer[-c(1)])
 
-varImpPlot(fit_rf, type = 2)
+
+```
+
+# Predictions
+Here is how I used the random forest model, fit_rf, to make full season batting average predictions. I created a dataframe with these predictions as well as other relevant variables for further analysis. 
+```{r}
+
+
+rfpredictions = predict(fit_rf, newdata = tester)
+prediction = data.frame(Name = tester$Name, FullSeason_AVG = tester$FullSeason_AVG, prediction = predict(fit_rf, newdata = tester), MarApr_AVG = tester$MarApr_AVG)
+
+head(prediction)
+
+
+```
+Also a few graphics:
+
+```{r, fig.align = "default",fig.show='hold'}
+
+prediction%>%
+  gather(prediction, MarApr_AVG, key = results, value = ba)%>%
+  ggplot(aes(x = results, y = ba, group = Name)) + geom_point(alpha = 0.4) + geom_line(alpha = 0.4) + scale_y_continuous(breaks = seq(0.1,0.4,0.05), limits = c(0.1,0.4))  + geom_point(alpha = 0.4) + labs(title = "Random Forest Model Predicted Regression to the Mean")
+
+prediction%>%
+  gather(FullSeason_AVG, prediction, key = results, value = ba)%>%
+  ggplot(aes(x = results, y = ba, group = Name)) + geom_point(alpha = 0.4) + geom_line(alpha = 0.4) + scale_y_continuous(breaks = seq(0.1,0.4,0.05), limits = c(0.1,0.4)) + labs(title = "Model Did Not Predict a  Wide Range of Batting Averages", subtitle = ) + geom_hline(yintercept = mean(prediction$Fullseason_AVG, na.rm = TRUE), linetype = 3, color = "red") + geom_hline(yintercept = mean(prediction$prediction, na.rm = TRUE), linetype = 3)
 
 
 ```
 
 
+Although I did not use the James_Stein EStimator approach, the results of the random forest model were very similar. The "shrinking" is very evident in these graphs and it was accounted for in the model. A criticism however, could be that there was to much shrinkage evident by the range of values the random forest model predicted. There were no values above 0.300 or below 0.200, thus the model struggled to predict both extremes. 
+
+Also, calculating the RMSE: 
+```{r}
+prediction<-prediction%>%mutate(se = (FullSeason_AVG - prediction)^2, difference = FullSeason_AVG - prediction)
+
+
+prediction%>%
+  summarise(RMSE = sqrt(mean(se)))
+```
+
+In the context of this model, the RMSE means that the average error for all the predicted full season batting averages was about 0.024. 0.024 points of batting averages is fairly significant, the difference between a .275 hitter and someone who hits 0.300 is noticeable. Again, the model struggled with the extreme values such as predicting extremely low and extremely high batting averages. Also shown below, it struggeld with the rate at which to regress to the mean. For example, Aaron Altherr had a very poor months of March and April hitting 0.192. The random forest model thus predicted him to regress back up to the mean over the course of the season; however, he stayed below .200. On the opposite end of the spectrum, Wilson Ramos got out to a considerably hot of .292 for a career 0.268 hitter. Thus, the model predicted him to to regress, but he continued to have a great 2018 finishing at 0.306. However, since most hitters and their batting average converges either to the overall mean or their own mean (lifetime average), the model still did a good job. This is evident by the histogram below where a good portion of the differences between the predicted and true end of sesaon batting averages fall between (-0.2, 0.2), ≈ 60% of predicted values. 
 
 ```{r}
-set.seed(123)
-sample <- sample.int(n = nrow(batting), size = floor(.8*nrow(batting)), replace = FALSE)
-  trainer<- batting[sample, ]
-  tester<- batting[-sample, ]
-  
-  
-names(trainer) <- make.names(names(trainer))
-names(tester) <- make.names(names(tester))
+prediction%>%
+  arrange(desc(abs(difference)))%>% head()
 
-trainer<-trainer%>% select(- playerid, -Team, -MarApr_HR, -MarApr_SB, - MarApr_HR.FB, -MarApr_R, -MarApr_RBI, -MarApr_BB.)
+prediction%>%
+  arrange(abs(difference)) %>% head ()
+
+hist(prediction$difference)
 
 
-fit_rf<-randomForest(FullSeason_AVG~.,
-                     data=trainer[-1])
+```
 
-varImpPlot(fit_rf)
-
-predict_ba<- predict(fit_rf, tester)
-
-tester%>%mutate(predicted_fullseason_avg = predict(fit_rf, .))%>%
-  mutate(se = (FullSeason_AVG - predicted_fullseason_avg)^2)%>%
-  summarise(sqrt(mean(se)))
+```{r}
+prediction%>%mutate(within_0.02 = case_when(difference > -0.02 & difference < 0.02 ~ 1,
+                                            TRUE ~ 0))%>%
+  summarise(sum(within_0.02)/n())
 
 ```
 
 
 
-#Predictions 
+# Conclusions
 
-cor(batting)
+I believe the data is so hard to model given how small the dataset is and the shear range of predictions that needed to be made. It is extremely hard to predict Charlie Culberson's average after only having 3 hits in 27 at bats in the same model as George Spring who had 32 hits in 120 at bats. Even harder, Springer stayed at right about this batting average while Culberson went on to hit 0.270 in 2018. There are so many combinations of hits and at bats in March and April and final season batting averages such as this in such a small dataset that I believe any model would struggle to predict extremely accurate batting averages. However, all in all, the random forest model made fairly decent predictions. The predictions are not always exact; however, they put us in the ballpark. Furthermore, the model adheres to the principle of regression to the mean, which Bradley Efron and Carl Morris proved to be relevant in the prediction of full season batting averages using James Stein Estimators. 
+
+Further iterations of this analysis can include more fine tuning of the random forest model. Also, I could try to incorporate more hitting data in the model such as Launch Angle, Exit Velocity, and Hard Hit %. Furthermore, a Multilevel Bayesian Model may provide more accurate predictions than the random forest model I chose to use. Multilevel models are regression models that "incorporate group-specific effects", which would serve well with regression to the mean. I was not able to learn or impliment a Multilevel Bayesian Model given the short period of time to work on the assignment (however, they will be a focus of one of my classes next semester). 
+
 
 
