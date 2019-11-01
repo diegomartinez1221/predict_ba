@@ -57,6 +57,8 @@ The Full Season Averages vs. March and April Averages plot tells us a lot about 
 
 For my predictions, I would like to use James Stein Estimators; however, I would not be able to follow the methods of analysis similar to Bradley Efron and Carl Morris. Carl Morris stated that "Stein’s estimator required approximate normality (satisfied by a sufficient sample size for each batter), and it was designed only to work for equal variances." Equal variance would be achieved by everyone having the same number of at bats; however, there is a wide distribution of at bats in this dataset. 
 
+Thus, I decided upon using a 
+
 
 
 
