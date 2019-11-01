@@ -274,6 +274,5 @@ I believe the data is so hard to model given how small the dataset is and the sh
 Further iterations of this analysis can include more fine tuning of the random forest model. Also, I could try to incorporate more hitting data in the model such as Launch Angle, Exit Velocity, and Hard Hit %. Furthermore, a Multilevel Bayesian Model may provide more accurate predictions than the random forest model I chose to use. Multilevel models are regression models that "incorporate group-specific effects", which would serve well with regression to the mean. I was not able to learn or impliment a Multilevel Bayesian Model given the short period of time to work on the assignment (however, they will be a focus of one of my classes next semester). 
 
 
-
-
+View Github repository for all of my vode [here](https://github.com/diegomartinez1221/predict_ba).
 
